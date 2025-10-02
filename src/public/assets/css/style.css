@@ -1,0 +1,6 @@
+.kanban-column {
+    min-height: 400px;
+    padding: 10px;
+    background-color: #f8f9fa2a;
+    border-radius: 4px;
+}
