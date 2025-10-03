@@ -2,7 +2,11 @@
     @php
         $myWalletId = $wallet['id'] ?? (auth()->user()->wallet->id ?? null);
     @endphp
-
+    @if (session('error'))
+        <div class="text-center alert alert-danger">
+            {{ session('error') }}
+        </div>
+    @endif
     @forelse($transactions as $tx)
         @php
 
@@ -10,7 +14,7 @@
             $badge = $tx->type === 'DEP' ? 'success' : 'secondary';
             $direction = 'neutral';
 
-            if ($tx->type === 'TRA' && $myWalletId) {
+            if ($tx->type !== 'DEP' && $myWalletId) {
                 if ($tx->sender_wallet_id == $myWalletId) {
                     $direction = 'out';
                     $label = 'Envio';
@@ -60,6 +64,16 @@
                             {{ $sign }} R$ {{ number_format($tx->amount, 2, ',', '.') }}
                         </div>
                         <small class="text-muted">ID: {{ $tx->id }}</small>
+
+                        @if ($tx->type === 'TRA')
+                            <form method="POST" action="{{ route('revert', Crypt::encrypt($tx->id)) }}"
+                                onsubmit="return confirm('Deseja reverter esta transação?');" class="d-inline-block">
+                                @csrf
+                                <button type="submit" class="btn btn-link p-0 m-0 text-danger" title="Reverter">
+                                    <i class="fas fa-undo"></i>
+                                </button>
+                            </form>
+                        @endif
                     </div>
                 </div>
             </div>
