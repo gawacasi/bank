@@ -20,7 +20,7 @@ class MainController extends Controller
         $transactions = Transaction::where('sender_wallet_id', $wallet['id'])
             ->orWhere('receiver_wallet_id', $wallet['id'])
             ->orderBy('created_at', 'desc')
-            ->paginate(5);
+            ->paginate(12);
 
         return view('site.home', [
             'user' => $user,
@@ -216,7 +216,7 @@ class MainController extends Controller
         $senderWallet->save();
         $transaction->type = 'INA';
         $transaction->save();
-        
+
         Transaction::create([
             'sender_wallet_id'     => $transaction->receiver_wallet_id,
             'receiver_wallet_id'   => $transaction->sender_wallet_id,
