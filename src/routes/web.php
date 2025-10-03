@@ -20,4 +20,5 @@ Route::middleware([CheckIsLogged::class])->group(function () {
     Route::post('/depositSub/{id}', [MainController::class, 'depositSub'])->name('depositSub');
     Route::get('/transfer', [MainController::class, 'transfer'])->name('transfer');
     Route::post('/transferSub/{id}', [MainController::class, 'transferSub'])->name('transferSub');
+    Route::post('/revert/{id}', [MainController::class, 'revert'])->name('revert');
 });
