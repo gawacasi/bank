@@ -17,10 +17,15 @@ class MainController extends Controller
         $id = session('user.id');
         $user = User::find($id)->toArray();
         $wallet = Wallet::where('user_id', $id)->first()->toArray();
+        $transactions = Transaction::where('sender_wallet_id', $wallet['id'])
+            ->orWhere('receiver_wallet_id', $wallet['id'])
+            ->orderBy('created_at', 'desc')
+            ->paginate(5);
 
         return view('site.home', [
             'user' => $user,
             'wallet' => $wallet,
+            'transactions' => $transactions,
         ]);
     }
 
@@ -144,20 +149,21 @@ class MainController extends Controller
                 ->with('amountError', 'Insufficient balance');
         }
 
-        $wallet->balance -= $amount;
-        $wallet->save();
         $receiverWallet = $this->findWalletByEmail($request->destinatario_email, $user->id);
-        
+
         if (!$receiverWallet) {
             return redirect()
                 ->back()
                 ->withInput()
                 ->with('amountError', 'Receiver wallet not found');
         }
+        
+        $wallet->balance -= $amount;
+        $wallet->save();
 
         $receiverWallet->balance += $amount;
         $receiverWallet->save();
-        
+
         Transaction::create([
             'sender_wallet_id'     => $user->id,
             'receiver_wallet_id'   => $receiverWallet->user_id,
@@ -181,7 +187,7 @@ class MainController extends Controller
         return $id;
     }
 
-    private function findWalletByEmail($email ,$sender_id)
+    private function findWalletByEmail($email, $sender_id)
     {
         $user = User::where('email', $email)->first();
 
@@ -190,8 +196,8 @@ class MainController extends Controller
         }
 
         $wallet = Wallet::where('user_id', $user->id)
-        ->where('user_id', '!=', $sender_id)
-        ->first();
+            ->where('user_id', '!=', $sender_id)
+            ->first();
 
         return $wallet;
     }
