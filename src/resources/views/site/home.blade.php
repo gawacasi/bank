@@ -16,6 +16,7 @@
                     <div class="row">
 
                     </div>
+                    @include('partials.transactions')
                 </div>
             </div>
         @endsection

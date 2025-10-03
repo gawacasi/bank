@@ -1,49 +1,62 @@
 <div class="row">
+    @php
+        $myWalletId = $wallet['id'] ?? (auth()->user()->wallet->id ?? null);
+    @endphp
+
     @forelse($transactions as $tx)
         @php
-            $me = auth()->id();
-            $typeLabel = '';
-            $badgeClass = 'secondary';
-            if ($tx->type === 'deposit') {
-                $typeLabel = 'Depósito';
-                $badgeClass = 'success';
-            } elseif ($tx->type === 'transfer' && $tx->from_user_id == $me) {
-                $typeLabel = 'Envio';
-                $badgeClass = 'warning';
-            } elseif ($tx->type === 'transfer' && $tx->to_user_id == $me) {
-                $typeLabel = 'Recebimento';
-                $badgeClass = 'primary';
-            } else {
-                $typeLabel = ucfirst($tx->type);
+
+            $label = $tx->type === 'DEP' ? 'Depósito' : 'Transferência';
+            $badge = $tx->type === 'DEP' ? 'success' : 'secondary';
+            $direction = 'neutral';
+
+            if ($tx->type === 'TRA' && $myWalletId) {
+                if ($tx->sender_wallet_id == $myWalletId) {
+                    $direction = 'out';
+                    $label = 'Envio';
+                    $badge = 'warning';
+                } elseif ($tx->receiver_wallet_id == $myWalletId) {
+                    $direction = 'in';
+                    $label = 'Recebimento';
+                    $badge = 'primary';
+                }
             }
-            $sign = $tx->from_user_id == $me && $tx->type === 'transfer' ? '-' : '+';
+
+            $sign = $direction === 'out' ? '-' : '+';
+            $amountClass = $direction === 'out' ? 'text-danger' : 'text-success';
+
+            $counterpart = '—';
+
+            if ($direction === 'out') {
+                $counterpart = optional($tx->receiverWallet->user)->name ?? '—';
+            } elseif ($direction === 'in') {
+                $counterpart = optional($tx->senderWallet->user)->name ?? '—';
+            }
+
+            $date = optional($tx->created_at)->format('d/m/Y H:i') ?? $tx->created_at;
         @endphp
 
         <div class="col-md-6 mb-3">
             <div class="card shadow-sm">
                 <div class="card-body d-flex justify-content-between align-items-start">
                     <div>
-                        <h6 class="card-title mb-1">{{ $typeLabel }}
-                            <span class="badge bg-{{ $badgeClass }} ms-2">{{ $tx->status }}</span>
+                        <h6 class="card-title mb-1">
+                            {{ $label }}
+                            <span class="badge bg-{{ $badge }} ms-2">{{ $tx->type }}</span>
                         </h6>
+
                         <p class="mb-1 text-muted small">
-                            {{ $tx->created_at->format('d/m/Y H:i') ?? $tx->created_at }}
-                            @if ($tx->type === 'transfer')
-                                • @if ($tx->from_user_id == $me)
-                                    Para:
-                                @else
-                                    De:
-                                @endif
-                                {{ $tx->from_user_id == $me ? $tx->to_user->name ?? '—' : $tx->from_user->name ?? '—' }}
+                            {{ $date }}
+                            @if ($direction === 'out')
+                                • Para: {{ $counterpart }}
+                            @elseif($direction === 'in')
+                                • De: {{ $counterpart }}
                             @endif
                         </p>
-                        @if (!empty($tx->meta['note']))
-                            <p class="mb-0 small text-muted">Obs: {{ $tx->meta['note'] }}</p>
-                        @endif
                     </div>
 
                     <div class="text-end">
-                        <div class="h5 mb-1 {{ $sign === '-' ? 'text-danger' : 'text-success' }}">
+                        <div class="h5 mb-1 {{ $amountClass }}">
                             {{ $sign }} R$ {{ number_format($tx->amount, 2, ',', '.') }}
                         </div>
                         <small class="text-muted">ID: {{ $tx->id }}</small>
@@ -53,7 +66,7 @@
         </div>
     @empty
         <div class="col-12">
-            <div class="alert alert-light text-center">Nenhuma movimentação encontrada.</div>
+            <div class="alert alert-secondary text-center">Nenhuma movimentação encontrada.</div>
         </div>
     @endforelse
 </div>
