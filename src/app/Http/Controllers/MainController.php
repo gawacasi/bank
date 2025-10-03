@@ -157,7 +157,7 @@ class MainController extends Controller
                 ->withInput()
                 ->with('amountError', 'Receiver wallet not found');
         }
-        
+
         $wallet->balance -= $amount;
         $wallet->save();
 
@@ -174,6 +174,59 @@ class MainController extends Controller
         return redirect()
             ->route('home')
             ->with('success', 'Deposit successful');
+    }
+
+    public function revert($transaction_id) 
+    {
+        $transaction_id = $this->decryptId($transaction_id);
+
+        $transaction = Transaction::find($transaction_id);
+
+        if (!$transaction) {
+            return redirect()
+                ->route('home')
+                ->with('error', 'Transaction not found');
+        }
+
+        if ($transaction->type !== 'TRA') {
+            return redirect()
+                ->route('home')
+                ->with('error', 'Only transfer transactions can be reverted');
+        }
+
+        $senderWallet = Wallet::where('user_id', $transaction->sender_wallet_id)->first();
+        $receiverWallet = Wallet::where('user_id', $transaction->receiver_wallet_id)->first();
+
+        if (!$senderWallet || !$receiverWallet) {
+            return redirect()
+                ->route('home')
+                ->with('error', 'Wallet not found');
+        }
+
+        if ($receiverWallet->balance < $transaction->amount) {
+            return redirect()
+                ->route('home')
+                ->with('error', 'Receiver has insufficient balance to revert this transaction');
+        }
+
+        $receiverWallet->balance -= $transaction->amount;
+        $receiverWallet->save();
+
+        $senderWallet->balance += $transaction->amount;
+        $senderWallet->save();
+        $transaction->type = 'INA';
+        $transaction->save();
+        
+        Transaction::create([
+            'sender_wallet_id'     => $transaction->receiver_wallet_id,
+            'receiver_wallet_id'   => $transaction->sender_wallet_id,
+            'type'                 => 'REV',
+            'amount'               => $transaction->amount,
+        ]);
+
+        return redirect()
+            ->route('home')
+            ->with('success', 'Transaction reverted successfully');
     }
 
     private function decryptId($id)
