@@ -13,7 +13,7 @@ class CreateTransactionsTable extends Migration
             $table->foreignId('sender_wallet_id');
             $table->foreignId('receiver_wallet_id');
             $table->decimal('amount', 20, 2);
-            $table->enum('type', ['DEP', 'TRA', 'REV']);
+            $table->enum('type', ['DEP', 'TRA', 'REV' , 'INA']);
             $table->timestamps();
         });
     }
