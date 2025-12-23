@@ -8,6 +8,7 @@ use App\Models\Transaction;
 use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class MainController extends Controller
 {
@@ -227,6 +228,135 @@ class MainController extends Controller
         return redirect()
             ->route('home')
             ->with('success', 'Transaction reverted successfully');
+    }
+
+
+
+    public function exportTransfersCsvDownload()
+    {
+        $userId = session('user.id');
+        $wallet = Wallet::where('user_id', $userId)->first();
+
+        if (!$wallet) {
+            return redirect()->back()->with('error', 'Wallet not found');
+        }
+
+        // Include transfers and deposits initiated by this user's wallet
+        $transactions = Transaction::with(['senderWallet.user', 'receiverWallet.user'])
+            ->where('sender_wallet_id', $wallet->id)
+            ->whereIn('type', ['TRA', 'DEP', 'REV', 'INA'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        $filename = 'transactions_'.$wallet->id.'.csv';
+
+        $headers = [
+            'Content-Type' => 'text/csv; charset=utf-8',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+        ];
+
+        $callback = function () use ($transactions) {
+            $out = fopen('php://output', 'w');
+            // BOM for Excel compatibility
+            fprintf($out, "%s", chr(0xEF).chr(0xBB).chr(0xBF));
+            fputcsv($out, ['id', 'created_at', 'type', 'amount', 'sender_name', 'receiver_name']);
+
+            foreach ($transactions as $t) {
+                $senderName = optional(optional($t->senderWallet)->user)->name ?: '';
+                $receiverName = optional(optional($t->receiverWallet)->user)->name ?: '';
+
+                fputcsv($out, [
+                    $t->id,
+                    $t->created_at,
+                    $t->type,
+                    number_format($t->amount, 2, '.', ''),
+                    $senderName,
+                    $receiverName,
+                ]);
+            }
+
+            fclose($out);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
+    // Development/test helper: generate CSV for given user_id query param
+    public function exportCsvDownloadTest(Request $request)
+    {
+        $userId = $request->query('user_id', session('user.id'));
+
+        $wallet = Wallet::where('user_id', $userId)->first();
+        if (!$wallet) {
+            return response('Wallet not found for user_id '.$userId, 404);
+        }
+
+        $transactions = Transaction::where('sender_wallet_id', $wallet->id)
+            ->orWhere('receiver_wallet_id', $wallet->id)
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        $filename = 'transactions_'.$wallet->id.'_test.csv';
+
+        $headers = [
+            'Content-Type' => 'text/csv; charset=utf-8',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+        ];
+
+        $callback = function () use ($transactions) {
+            $out = fopen('php://output', 'w');
+            fprintf($out, "%s", chr(0xEF).chr(0xBB).chr(0xBF));
+            fputcsv($out, ['id', 'created_at', 'type', 'amount', 'sender_wallet_id', 'receiver_wallet_id']);
+
+            foreach ($transactions as $t) {
+                fputcsv($out, [
+                    $t->id,
+                    $t->created_at,
+                    $t->type,
+                    number_format($t->amount, 2, '.', ''),
+                    $t->sender_wallet_id,
+                    $t->receiver_wallet_id,
+                ]);
+            }
+
+            fclose($out);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
+    // Public form to create transactions (external to login)
+    public function externalTransactionForm()
+    {
+        return view('external.transactions_form');
+    }
+
+    // Handle external transaction submission
+    public function externalTransactionStore(Request $request)
+    {
+        $request->validate([
+            'created_at' => ['nullable', 'date'],
+            'type' => ['required', 'string', 'max:10'],
+            'amount' => ['required', 'numeric', 'gt:0', 'regex:/^\d+(\.\d{1,2})?$/'],
+            'sender_wallet_id' => ['required', 'integer', 'exists:wallets,id'],
+            'receiver_wallet_id' => ['required', 'integer', 'exists:wallets,id'],
+        ]);
+
+        $amount = (float) str_replace(',', '.', $request->amount);
+
+        $transaction = Transaction::create([
+            'sender_wallet_id' => $request->sender_wallet_id,
+            'receiver_wallet_id' => $request->receiver_wallet_id,
+            'type' => strtoupper($request->type),
+            'amount' => $amount,
+        ]);
+
+        if ($request->filled('created_at')) {
+            $transaction->created_at = $request->created_at;
+            $transaction->save();
+        }
+
+        return response()->json(['success' => true, 'transaction_id' => $transaction->id], 201);
     }
 
     private function decryptId($id)

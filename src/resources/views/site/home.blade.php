@@ -12,6 +12,9 @@
                         <a href="{{route("transfer")}}" class="btn btn-primary px-3 ms-3">
                             <i class="fa-solid fa-money-bill-transfer me-2"></i>Enviar Pix
                         </a>
+                        <a href="{{ route('exportTransfers.download') }}" class="btn btn-success px-3 ms-3">
+                            <i class="fa-solid fa-file-csv me-2"></i>Baixar CSV (Minhas Transferências)
+                        </a>
                     </div>
                     <div class="row">
 
