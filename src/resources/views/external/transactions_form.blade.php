@@ -1,58 +1,55 @@
-<!doctype html>
-<html lang="pt-BR">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>Formulário externo - Cadastrar Transação</title>
-    <style>
-        body { font-family: Arial, sans-serif; padding: 24px; }
-        .container { max-width: 520px; margin: auto; }
-        label { display:block; margin-top:12px; }
-        input, select { width:100%; padding:8px; box-sizing:border-box; }
-        button { margin-top:16px; padding:10px 16px; }
-        .msg { margin-top:12px; }
-    </style>
-</head>
-<body>
-<div class="container">
-    <h2>Cadastrar Transação (externo)</h2>
-    <form id="txForm">
-        <label>Data e hora (opcional)
-            <input type="datetime-local" id="created_at" name="created_at">
-        </label>
+@extends('layouts.main_layout')
 
-        <label>Tipo
-            <select id="type" name="type">
-                <option value="DEP">DEP</option>
-                <option value="TRA">TRA</option>
-                <option value="REV">REV</option>
-                <option value="INA">INA</option>
-            </select>
-        </label>
+@section('content')
+<div class="container" style="max-width:720px; padding:24px;">
+    <div class="card">
+        <div class="card-body">
+            <h3 class="card-title">Cadastrar Transação (externo)</h3>
 
-        <label>Valor
-            <input type="text" id="amount" name="amount" placeholder="1234.56" required>
-        </label>
+            <form id="txForm">
+                @csrf
+                <div class="mb-3">
+                    <label class="form-label">Data e hora (opcional)</label>
+                    <input class="form-control" type="datetime-local" id="created_at" name="created_at">
+                </div>
 
-        <label>Sender Wallet ID
-            <input type="number" id="sender_wallet_id" name="sender_wallet_id" required>
-        </label>
+                <div class="mb-3">
+                    <label class="form-label">Tipo</label>
+                    <select class="form-select" id="type" name="type">
+                        <option value="DEP">DEP</option>
+                        <option value="TRA">TRA</option>
+                        <option value="REV">REV</option>
+                        <option value="INA">INA</option>
+                    </select>
+                </div>
 
-        <label>Receiver Wallet ID
-            <input type="number" id="receiver_wallet_id" name="receiver_wallet_id" required>
-        </label>
+                <div class="mb-3">
+                    <label class="form-label">Valor</label>
+                    <input class="form-control" type="text" id="amount" name="amount" placeholder="1234.56" required>
+                </div>
 
-        <button type="submit">Cadastrar</button>
-    </form>
+                <div class="mb-3">
+                    <label class="form-label">Sender Wallet ID</label>
+                    <input class="form-control" type="number" id="sender_wallet_id" name="sender_wallet_id" required>
+                </div>
 
-    <div class="msg" id="msg"></div>
+                <div class="mb-3">
+                    <label class="form-label">Receiver Wallet ID</label>
+                    <input class="form-control" type="number" id="receiver_wallet_id" name="receiver_wallet_id" required>
+                </div>
+
+                <button class="btn btn-primary" type="submit">Cadastrar</button>
+            </form>
+
+            <div class="mt-3" id="msg"></div>
+        </div>
+    </div>
 </div>
 
+@push('scripts')
 <script>
     function formatDatetimeLocal(value) {
         if (!value) return '';
-        // value is like 2025-12-23T05:44
         const dt = new Date(value);
         if (isNaN(dt)) return '';
         const pad = n => String(n).padStart(2, '0');
@@ -64,19 +61,21 @@
         const msg = document.getElementById('msg');
         msg.textContent = 'Enviando...';
 
+        const token = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
         const payload = {
             created_at: formatDatetimeLocal(document.getElementById('created_at').value),
             type: document.getElementById('type').value,
             amount: document.getElementById('amount').value,
             sender_wallet_id: document.getElementById('sender_wallet_id').value,
             receiver_wallet_id: document.getElementById('receiver_wallet_id').value,
-            _token: document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            _token: token
         };
 
         try {
             const res = await fetch('/external/transactions', {
                 method: 'POST',
-                headers: {'Content-Type':'application/json'},
+                headers: {'Content-Type':'application/json', 'X-CSRF-TOKEN': token},
                 body: JSON.stringify(payload)
             });
 
@@ -101,5 +100,7 @@
         }
     });
 </script>
-</body>
-</html>
+</script>
+@endpush
+
+@endsection

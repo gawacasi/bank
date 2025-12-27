@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Wallet;
 use App\Models\User;
 use App\Models\Transaction;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
@@ -344,19 +345,19 @@ class MainController extends Controller
 
         $amount = (float) str_replace(',', '.', $request->amount);
 
-        $transaction = Transaction::create([
-            'sender_wallet_id' => $request->sender_wallet_id,
-            'receiver_wallet_id' => $request->receiver_wallet_id,
+        $now = now();
+
+        $insertId = DB::table('external_transactions')->insertGetId([
+            'csv_created_at' => $request->filled('created_at') ? $request->created_at : null,
             'type' => strtoupper($request->type),
             'amount' => $amount,
+            'sender_wallet_id' => $request->sender_wallet_id,
+            'receiver_wallet_id' => $request->receiver_wallet_id,
+            'created_at' => $now,
+            'updated_at' => $now,
         ]);
 
-        if ($request->filled('created_at')) {
-            $transaction->created_at = $request->created_at;
-            $transaction->save();
-        }
-
-        return response()->json(['success' => true, 'transaction_id' => $transaction->id], 201);
+        return response()->json(['success' => true, 'external_transaction_id' => $insertId], 201);
     }
 
     private function decryptId($id)

@@ -1,22 +1,40 @@
+version: "3.9"
+
 services:
   app:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: laravel-app
+    restart: unless-stopped
     volumes:
       - ./src:/var/www/html
     ports:
-      - "8000:8000"
+      - "8000:80"
     depends_on:
       - db
     working_dir: /var/www/html
-    command: bash -c "composer install && php artisan key:generate && php artisan migrate && php artisan serve --host=0.0.0.0 --port=8000"
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "true"
+      DB_CONNECTION: mysql
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_DATABASE: laravel
+      DB_USERNAME: laravel
+      DB_PASSWORD: secret
+    command: |
+      bash -c "
+      composer install &&
+      php artisan key:generate &&
+      php artisan migrate &&
+      apache2-foreground
+      "
 
   db:
     image: mysql:8.0
     container_name: laravel-mysql
-    restart: always
+    restart: unless-stopped
     environment:
       MYSQL_DATABASE: laravel
       MYSQL_ROOT_PASSWORD: root
